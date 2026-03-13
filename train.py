@@ -49,19 +49,19 @@ def get_batch(split):
     return x, y
 
 xb, yb = get_batch("train")
-print('inputs:')
-print(xb.shape)
-print(xb)
-print('targets:')
-print(yb.shape)
-print(yb)
-print('----')
+# print('inputs:')
+# print(xb.shape)
+# print(xb)
+# print('targets:')
+# print(yb.shape)
+# print(yb)
+# print('----')
 
 for b in range(batch_size): # batch dimension 
     for t in range(block_size): # time dimension
         context = xb[b, :t+1]
         target = yb[b,t]
-        print(f"when input is {context.tolist()} the taregt: {target}")
+        # print(f"when input is {context.tolist()} the taregt: {target}")
 
 class BiagramLanguageModel(nn.Module):
 
@@ -103,9 +103,24 @@ class BiagramLanguageModel(nn.Module):
 
 m = BiagramLanguageModel(vocab_size)
 logits, loss = m(xb, yb)
-print(logits.shape)
-print(loss)
+# print(logits.shape)
+# print(loss)
 
+# print(decode(m.generate(idx = torch.zeros((1,1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
+
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+batch_size = 32
+for steps in range(10000):
+
+    # sample a batch of data
+    xb, yb = get_batch('train')
+
+    # evaluate the loss
+    logits, loss = m(xb, yb)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+    
+print(loss.item())
 print(decode(m.generate(idx = torch.zeros((1,1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
-
-
