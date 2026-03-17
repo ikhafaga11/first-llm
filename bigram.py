@@ -10,6 +10,7 @@ eval_interval = 300
 learning_rate = 1e-2
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_inters = 200
+n_embd = 32
 
 torch.manual_seed(1337)
 
@@ -59,17 +60,23 @@ def estimate_loss():
     model.train()
     return out
 
-class BiagramLanguageModel(nn.Module):
+class BigramLanguageModel(nn.Module):
 
-    def __init__(self, vocab_size):
+    def __init__(self):
         super().__init__()
         # each token directly reads off the logits for the next token from a lookup table
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.lm_head = nn.Linear(n_embd, vocab_size)
     
     def forward(self, idx, targets=None):
-
+        B,T = idx.shape
+ 
         #idx and targets are bot (B,T) tensor of integers
-        logits = self.token_embedding_table(idx) # (B,T,C)
+        tok_emb = self.token_embedding_table(idx) # (B,T,C)
+        pos_emb = self.position_embedding_table(torch.arrange(T, device = device)) # (T,C)
+        x = tok_emb + pos_emb
+        logits = self.lm_head(x) # (B,T,vocab_size)
 
         if targets is None:
             loss = None
@@ -98,7 +105,7 @@ class BiagramLanguageModel(nn.Module):
 
 
 
-model = BiagramLanguageModel(vocab_size)
+model = BigramLanguageModel()
 m = model.to(device)
 
 optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
