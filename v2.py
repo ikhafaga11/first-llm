@@ -1,21 +1,21 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from google.colab import files
-files.upload()
+# from google.colab import files
+# files.upload()
 
 #hyperparameters 
-batch_size = 64 # how many independent sequences will we process in parallel?
-block_size = 256 # what is the maximum context length for predictions?
-max_iters = 5000
-eval_interval = 500
+batch_size = 4 # how many independent sequences will we process in parallel?
+block_size = 16 # what is the maximum context length for predictions?
+max_iters = 20
+eval_interval = 5
 learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(torch.cuda.is_available())
 eval_inters = 200
-n_embd = 384
+n_embd = 48
 n_head = 6
-n_layer = 6
+n_layer = 1
 dropout = 0.2
 # ------------
 
@@ -28,6 +28,7 @@ with open('data.txt', 'r', encoding="utf-8") as f:
 
 # take unique chars from data and add to list
 chars = sorted(list(set(text)))
+# length of possible characters
 vocab_size = len(chars)
 
 # string to integer & integer to string
@@ -40,18 +41,29 @@ decode = lambda l: "".join([itos[i] for i in l])
 
 # pass data.txt file to encoder
 data = torch.tensor(encode(text), dtype=torch.long)
+
 # split up the data into train and validation sets
 n = int(0.9*len(data)) # first 90% of the data
-train_data = data[:n]
-val_data = data[n:]
+train_data = data[:n] #first tensory of 90%
+val_data = data[n:] #second tensor of 10%
 
 def get_batch(split):
+
     # generate a small batch of data of inputs x and targets y
     data = train_data if split == "train" else val_data
+    # ix short for index. assign random index integer to tensor rannging from 0 to data length minus block size. btach size refers to the number of indices so batch size 4 could eaual tensor([706094, 516259, 150661,  91611]) 
     ix = torch.randint(len(data) - block_size, (batch_size,))
+
+    # iterates through ix and for each index, does a lookup in the data.txt file and grabs block size number of characters
     x = torch.stack([data[i:i+block_size] for i in ix])
+    
+    # does the same as x but offset by one so that model can guess and check target value compute accuracy and "learn". 
     y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+    
+    # store to gpu if available otherwise store to cpu memory
     x,y = x.to(device), y.to(device)
+
+    # returns the x and y tensor blocks essentiall chunks of data from the data.txt file shape of tensor is blocksize by batchsize.
     return x, y
 
 @torch.no_grad()
