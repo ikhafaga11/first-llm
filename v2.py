@@ -66,18 +66,41 @@ def get_batch(split):
     # returns the x and y tensor blocks essentiall chunks of data from the data.txt file shape of tensor is blocksize by batchsize.
     return x, y
 
+# tells PyTorch not to track gradients inside this function.
 @torch.no_grad()
 def estimate_loss():
+    
+    # assign empty dictionary
     out = {}
-    model.eval()
+
+    # calls BigLanguageModel and uses the eval method from nn.Module
+    model.eval()  # disable dropout etc. for accurate loss measurement
+    
     for split in ['train', 'val']:
+
+        # assign a tensor with int values 0. size of tensor equal to eval_inters i.e. eval_inters 4 = [0.,0.,0.,0.]
         losses = torch.zeros(eval_inters)
+
+        #iterate from 0 to eval_inters
         for k in range(eval_inters):
+
+            # call get batch for training and value and assign to x (train) and y (val)
             X, Y = get_batch(split)
+            
+            # pass batch to BigramLanguageModel instance whcih calls the forward method and returns the logits and loss and assined to the below variables (logits, loss)
+            
             logits, loss = model(X,Y)
+            
+            # for every number in the iteration (0 to eval_inters) assign zero digit the loss value
             losses[k] = loss.item()
+
+        # add to out dictionary the mean of losses for both train and val on every batch
         out[split] = losses.mean()
-    model.train()
+    
+    #calls the BigramLanguageModel instance and calls the train method in nn.Module
+    model.train() # switch back to training mode so optimizer updates work
+
+    # return the out dictionary which holds the computed loss one for training and one for val
     return out
 
 class Head(nn.Module):
@@ -158,7 +181,9 @@ class Block(nn.Module):
 class BigramLanguageModel(nn.Module):
 
     def __init__(self):
+        # initialize nn.module (parent class)
         super().__init__()
+
         # each token directly reads off the logits for the next token from a lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
