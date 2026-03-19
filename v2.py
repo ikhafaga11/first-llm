@@ -181,14 +181,15 @@ class Block(nn.Module):
 class BigramLanguageModel(nn.Module):
 
     def __init__(self):
-        # initialize nn.module (parent class)
+        # initialize nn.Module (parent class)
         super().__init__()
 
         # each token directly reads off the logits for the next token from a lookup table
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # initialise matrix with random vectors. vocab_size (r) by n_embd (c). higher n_embd equals more dials for more expression when fine tuning. n_embd must be divisble by n_head. 
+        self.position_embedding_table = nn.Embedding(block_size, n_embd) # add position information to token to understand context i.e. dog bites man vs man bites dog. Without position model wont understand the sequence of the context. 
         self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
-        self.ln_f = nn.LayerNorm(n_embd) # final layer notm
+        print(self.blocks)
+        self.ln_f = nn.LayerNorm(n_embd) # final layer norm
         self.lm_head = nn.Linear(n_embd, vocab_size)
     
     def forward(self, idx, targets=None):
