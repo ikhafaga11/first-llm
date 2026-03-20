@@ -103,16 +103,31 @@ def estimate_loss():
     # return the out dictionary which holds the computed loss one for training and one for val
     return out
 
+# the core of self attention
+
 class Head(nn.Module):
     """ one head of self-attention"""
 
     def __init__(self, head_size):
         super().__init__()
+        # nn.Linear breaks a single vector into smaller dimensions for matrix computation.
+        # For example, a 48-dimensional vector is split into 6 heads, each of 8 dimensions.
+        # The weights of nn.Linear are randomly initialized and updated during training.
+        # This process is done three times—once for each of Key (K), Query (Q), and Value (V),
+        # so each head produces three separate matrices, each with its own learned weights.
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
+        # mask future interactions a i.e. 
+        # 100000 → The          (can only see itself)
+        # 110000 → The Cat      (Cat can see The + itself)
+        # 111000 → The Cat Sat  (Sat can see The, Cat, Sat)
+        # 111100 → The Cat Sat On
+        # 111110 → The Cat Sat On The
+        # 111111 → The Cat Sat On The Map
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
 
+        # randomly sets a percentage of nerons to 0 during training forcing the network not to rely too much on a single neuron and spread the learning across all neurons.
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -159,13 +174,16 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+# Block behaves as a mini-orchestra inside the transformer 
 class Block(nn.Module):
     """ Transformer block: communincation followed by computation """
 
     def __init__(self, n_embd, n_head):
         # n_embd: embedding dimension, n_head: the number of heads we like
         super().__init__()
-        head_size = n_embd // n_head
+        head_size = n_embd // n_head # headsize = number of dimensions divided by number of heads. Each head gets a slice of the embedding vector.
+
+        # Invokes instances of the SelfAttention, FeedForward and LayerNorm layers.
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedForward(n_embd)
         self.ln1 = nn.LayerNorm(n_embd)
@@ -188,7 +206,6 @@ class BigramLanguageModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # initialise matrix with random vectors. vocab_size (r) by n_embd (c). higher n_embd equals more dials for more expression when fine tuning. n_embd must be divisble by n_head. 
         self.position_embedding_table = nn.Embedding(block_size, n_embd) # add position information to token to understand context i.e. dog bites man vs man bites dog. Without position model wont understand the sequence of the context. 
         self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
-        print(self.blocks)
         self.ln_f = nn.LayerNorm(n_embd) # final layer norm
         self.lm_head = nn.Linear(n_embd, vocab_size)
     
