@@ -54,7 +54,7 @@ def get_batch(split):
 
     # generate a small batch of data of inputs x and targets y
     data = train_data if split == "train" else val_data
-    # ix short for index. assign random index integer to tensor rannging from 0 to data length minus block size. btach size refers to the number of indices so batch size 4 could eaual tensor([706094, 516259, 150661,  91611]) 
+    # ix short for index. assign random index integer to tensor rannging from 0 to data length minus block size. btach size refers to the number of indices so batch size 4 could equal tensor([706094, 516259, 150661,  91611]) 
     ix = torch.randint(len(data) - block_size, (batch_size,))
 
     # iterates through ix and for each index, does a lookup in the data.txt file and grabs block size number of characters
@@ -134,9 +134,15 @@ class Head(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
+        # B = batch size, T = sequence length (block size), C = embedding dimension
+        # x has shape (B, T, C) after adding token and position embeddings
         B,T,C = x.shape
+        
+        # Pass x through linear layers to create the Key (k) and Query (q) matrices
+        # Each linear layer transforms the original embedding dimension (C) into head_size (C per head)
         k = self.key(x) # (B,T,C)
         q = self.query(x) #(B,T,C)
+        
         # compute attention scores ("affinities")
         wei = q @ k.transpose(-2,-1) * C**-0.5 #(B, T, C) @ (B, T, C) -> (B, T, T)
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
@@ -152,11 +158,16 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, num_heads, head_size):
         super().__init__()
+        # create number of Heads() in this example (6) with dimension of head_size (8) 
+        # or in other words repeat Head(8) 6 times
+        # i.e. [Head(8),Head(8),Head(8),Head(8),Head(8),Head(8)]
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
         self.proj = nn.Linear(n_embd, n_embd)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
+
+        
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.proj (out)
         out = self.dropout(out)
@@ -206,19 +217,36 @@ class BigramLanguageModel(nn.Module):
         super().__init__()
 
         # each token directly reads off the logits for the next token from a lookup table
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # initialise matrix with random vectors. vocab_size (r) by n_embd (c). higher n_embd equals more dials for more expression when fine tuning. n_embd must be divisble by n_head. 
-        self.position_embedding_table = nn.Embedding(block_size, n_embd) # add position information to token to understand context i.e. dog bites man vs man bites dog. Without position model wont understand the sequence of the context. 
+        # initialise matrix with random vectors. vocab_size (row) by n_embd (col). 
+        # higher n_embd equals more dials for more expression when fine tuning. n_embd must be divisble by n_head.  
+        # this must match vocab size to get enough rows to assign all posible tokens.
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd) 
+
+        # add position information to token to understand context i.e. dog bites man vs man bites dog. Without position model wont understand the sequence of the context.
+        # must match the number of sequences a block can hold for context length i.e. block size of 16 means a matrix of 16 rows to assign each context with a 48 dimension vector.  
+        self.position_embedding_table = nn.Embedding(block_size, n_embd) 
+
         self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd) # final layer norm
         self.lm_head = nn.Linear(n_embd, vocab_size)
     
+    #idx = xb and target = yb called 
     def forward(self, idx, targets=None):
+        # B = block size and T = batch Size initialised in getbatch.
         B,T = idx.shape
  
         #idx and targets are bot (B,T) tensor of integers
+        # this is the “base meaning” of the token, looked up from the embedding table using the token’s index. Shape (B, T, C).
+        # you are essentially assigning a token from x into a n_embd (48 for example) dimensional vector. 
         tok_emb = self.token_embedding_table(idx) # (B,T,C)
+
+        # this is the positional encoding, giving the model a sense of where the token is in the sequence. Shape (T, C).
+            # you are essentially assigning a token from y into a n_embd (48 for example) dimensional vector. This
         pos_emb = self.position_embedding_table(torch.arange(T, device = device)) # (T,C)
-        x = tok_emb + pos_emb 
+
+        # combining the base meaning with positional context i.e. [0.5] + [0.01] = 0.51
+        x = tok_emb + pos_emb
+
         x = self.blocks(x) # (B,T,C)
         x = self.ln_f(x)# (B,T,C)
         logits = self.lm_head(x) # (B,T,vocab_size)
