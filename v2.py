@@ -11,11 +11,14 @@ max_iters = 20
 eval_interval = 5
 learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(torch.cuda.is_available())
 eval_inters = 200
+# numebr of dimension i.e. a 4 dimension vector equals [0,0,0,0,0,0]
 n_embd = 48
+# number of heads for self attention must be divisible by number of dimensions
 n_head = 6
 n_layer = 1
+
+#percentage of dropout
 dropout = 0.2
 # ------------
 
