@@ -143,6 +143,16 @@ class Head(nn.Module):
         k = self.key(x) # (B,T,C)
         q = self.query(x) #(B,T,C)
         
+        # q = (4,16,6) = 16 rows 6 cols
+        # k = (4,16,6) = 16 row 6 cols
+        # rows and cols must be the same for matrix multiplcation
+        # so for key flip T (block size) with C (head dimension) becoming k = (B,C,T)
+        # q = (4,16,6) * k = (4,6,16) returning a 16 x 16 matrix
+        # when multiplying matrices number of columns in first matrix must equal number of rows in second matrix
+        # so q column = C (6) * k Row = C(6)
+        # outer dimension determins the shape of the matrix 16 x 16 T * T
+
+        
         # compute attention scores ("affinities")
         wei = q @ k.transpose(-2,-1) * C**-0.5 #(B, T, C) @ (B, T, C) -> (B, T, T)
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
