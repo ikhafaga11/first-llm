@@ -140,8 +140,8 @@ class Head(nn.Module):
         
         # Pass x through linear layers to create the Key (k) and Query (q) matrices
         # Each linear layer transforms the original embedding dimension (C) into head_size (C per head)
-        k = self.key(x) # (B,T,C)
-        q = self.query(x) #(B,T,C)
+        k = self.key(x)    # (B, T, head_size)
+        q = self.query(x)  # (B, T, head_size)
         
         # q = (4,16,6) = 16 rows 6 cols
         # k = (4,16,6) = 16 row 6 cols
@@ -154,18 +154,32 @@ class Head(nn.Module):
 
 
         # compute attention scores ("affinities")
-        #dimension step 1 q0 * k0 + dimension step 2 q0 * k0 
-        #dimension step 1 q0 * k1 + dimension step 2 q0 * k1
-        # dot product ^ 
+        # dimension step 1 q0[0] * k0[0] + dimension step 2 q0[1] * k0[1]
+        # Dot product sums over feature dimensions (head_size)
         # matrix multiplication is computing the dot products at once
         # attention[i,j]
-        wei = q @ k.transpose(-2,-1) * C**-0.5 #(B, T, C) @ (B, T, C) -> (B, T, T)
+        # * C ** -0.5 scales down the dot product ti keep scores stabled. 
+        wei = q @ k.transpose(-2,-1) * C**-0.5 #(B, T, C) @ (B, C, T) -> (B, T, T)
+        
+        # Takes the lower-triangular mask of the right size ([:T, :T])
+        # Sets all 0 entries → -∞
+        # infinity instead of 0 as softmax will compute weight of 0 to future tokens. -inf wil cause token to ignore completely resulting in casual attention.
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
+        
+        # softmax turns attention scores → attention weights/probabilities that sum to 1 per query token, respecting the mask.
+        # Softmax is literally turning raw scores into percentages (probabilities) that sum to 1 across each row.
         wei = F.softmax(wei, dim=-1) #(B, T, T)
+        
+        # randomly zeroes some values in the tensor
+        # dropout to prevent overfitting.
         wei = self.dropout(wei)
-        #perform the weighted aggregation of the values
+
+        # perform the weighted aggregation of the values
+        # Multiply attention weights by V to aggregate context for each token
         v = self.value(x) #(B, T, C)
         out = wei @ v #(B, T, T) @ (B, T, C) -> (B, T, C)
+
+        # returns value
         return out
 
 class MultiHeadAttention(nn.Module):
