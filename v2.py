@@ -221,9 +221,15 @@ class FeedForward(nn.Module):
     def __init__(self, n_embd):
         super().__init__()
         self.net = nn.Sequential(
+            # expand dimension by * 4 i.e. 48 to 192
+            # y = x @ W.T + b
+            # multiplies x with weighted matrix. this weight matrix will adjust during training. 
             nn.Linear(n_embd, 4 * n_embd),
+            # sets negatives to zero
             nn.ReLU(),
+            # convert matrix back to original dimensions
             nn.Linear(4 * n_embd, n_embd),
+            # apply dropout for regularisation
             nn.Dropout(dropout)
         )
 
