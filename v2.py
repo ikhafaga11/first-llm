@@ -152,8 +152,13 @@ class Head(nn.Module):
         # so q column = C (6) * k Row = C(6)
         # outer dimension determins the shape of the matrix 16 x 16 T * T
 
-        
+
         # compute attention scores ("affinities")
+        #dimension step 1 q0 * k0 + dimension step 2 q0 * k0 
+        #dimension step 1 q0 * k1 + dimension step 2 q0 * k1
+        # dot product ^ 
+        # matrix multiplication is computing the dot products at once
+        # attention[i,j]
         wei = q @ k.transpose(-2,-1) * C**-0.5 #(B, T, C) @ (B, T, C) -> (B, T, T)
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
         wei = F.softmax(wei, dim=-1) #(B, T, T)
