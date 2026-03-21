@@ -172,6 +172,7 @@ class Head(nn.Module):
         
         # randomly zeroes some values in the tensor
         # dropout to prevent overfitting.
+        # token level dropout to prevent heavy reliance on specific tokens during aggregation
         wei = self.dropout(wei)
 
         # perform the weighted aggregation of the values
@@ -184,21 +185,33 @@ class Head(nn.Module):
 
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
+    # multi-head attention is essentially combining the different “attention subspaces” computed by each head back into one unified representation.
 
     def __init__(self, num_heads, head_size):
         super().__init__()
+        # You create multiple independent attention heads in parallel
+        # Each head has its own Q, K, V weights
+        # Example: num_heads=6, head_size=8 → 6 heads of 8 dimensions each
+        # Intuition: Each head learns different types of relationships in the sequence
         # create number of Heads() in this example (6) with dimension of head_size (8) 
         # or in other words repeat Head(8) 6 times
         # i.e. [Head(8),Head(8),Head(8),Head(8),Head(8),Head(8)]
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        # After concatenating all heads (shape (B, T, num_heads*head_size)), you project back to original embedding size n_embd
+        # This mixes information from all heads into a single embedding per token
         self.proj = nn.Linear(n_embd, n_embd)
+        # Regularization on the output
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-
-        
+        # Each head produces (B, T, head_size)
+        # Concatenate along feature dimension → (B, T, num_heads * head_size)
+        # dim-1 means last dimension i.e. C. So you concatenatng n_emb.
         out = torch.cat([h(x) for h in self.heads], dim=-1)
+        # Linear projection mixes all heads back into n_embd → (B, T, n_embd)
         out = self.proj (out)
+        # Randomly zero some elements for regularization
+        # feature level dropout on the find output embedding
         out = self.dropout(out)
         return out
 
