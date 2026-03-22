@@ -258,12 +258,21 @@ class Block(nn.Module):
         # Invokes instances of the SelfAttention, FeedForward and LayerNorm layers.
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedForward(n_embd)
+
+        #Layer norm computes mean and variance and normalizes each feature (divide by standard deviation).
+        # Attention: ensures no single feature dominates the dot products
+        # FeedForward: ensures the “dials” inside each token aren’t too extreme
+        # Residual connections + LayerNorm: make deep stacking of blocks stable
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
 
     
     def forward(self, x):
+        # "x +"" is a residual connnection adding ontop of the existing x data.
+
+        # normalize before Self Attention    
         x = x + self.sa(self.ln1(x))
+        # normalize before FeedForward
         x = x + self.ffwd(self.ln2(x))
         return x
 
