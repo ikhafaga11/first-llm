@@ -223,13 +223,19 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             # expand dimension by * 4 i.e. 48 to 192
             # y = x @ W.T + b
-            # multiplies x with weighted matrix. this weight matrix will adjust during training. 
+            # Takes the token embedding x and multiplies it by a learnable weight matrix.
+            # This produces many new combinations of the original features.
+            # At this point, the token is “experimenting” with different mixes of its own features.
+            # Weights are learned during training via backprop, so over time the network figures out the most useful combinations.
+            # Tokens are computing their own internal combinations of features in the FeedForward layer. Each token mixes its features using the learnable weights, creating a richer representation. This refined representation is then passed back into the next self-attention layer, where it can interact with other tokens via QKV.
             nn.Linear(n_embd, 4 * n_embd),
-            # sets negatives to zero
+            # Removes negative values → keeps only active/meaningful combinations.
+            # ntroduces non-linearity, which allows the network to represent complex functions (otherwise two linear layers would collapse into one).
             nn.ReLU(),
-            # convert matrix back to original dimensions
+            # Merges the expanded features back into the original embedding size.
+            # The output token embedding now contains richer information than the original.
             nn.Linear(4 * n_embd, n_embd),
-            # apply dropout for regularisation
+            # Randomly zeroes some elements → prevents over-reliance on any single feature
             nn.Dropout(dropout)
         )
 
