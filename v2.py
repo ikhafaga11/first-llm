@@ -173,6 +173,7 @@ class Head(nn.Module):
         # randomly zeroes some values in the tensor
         # dropout to prevent overfitting.
         # token level dropout to prevent heavy reliance on specific tokens during aggregation
+        # prevents a token from over-relying on any single other token in a head
         wei = self.dropout(wei)
 
         # perform the weighted aggregation of the values
@@ -201,6 +202,7 @@ class MultiHeadAttention(nn.Module):
         # This mixes information from all heads into a single embedding per token
         self.proj = nn.Linear(n_embd, n_embd)
         # Regularization on the output
+        # prevents a token from over-relying on any single other token in a head
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -212,6 +214,7 @@ class MultiHeadAttention(nn.Module):
         out = self.proj (out)
         # Randomly zero some elements for regularization
         # feature level dropout on the find output embedding
+        # prevents the network from over-relying on any single head or feature combination across heads
         out = self.dropout(out)
         return out
 
@@ -235,11 +238,12 @@ class FeedForward(nn.Module):
             # Merges the expanded features back into the original embedding size.
             # The output token embedding now contains richer information than the original.
             nn.Linear(4 * n_embd, n_embd),
-            # Randomly zeroes some elements → prevents over-reliance on any single feature
+            # prevents over-reliance on any individual feature inside the token after the FFN expansion/compression
             nn.Dropout(dropout)
         )
 
     def forward(self, x):
+        # returns a refined embedding
         return self.net(x)
 
 # Block behaves as a mini-orchestra inside the transformer 
