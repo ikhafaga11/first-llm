@@ -293,13 +293,21 @@ class BigramLanguageModel(nn.Module):
         # must match the number of sequences a block can hold for context length i.e. block size of 16 means a matrix of 16 rows to assign each context with a 48 dimension vector.  
         self.position_embedding_table = nn.Embedding(block_size, n_embd) 
 
+        # This creates a list of Blocks.
+        # If n_layer = 6, it becomes: [Block(...), Block(...), Block(...), Block(...), Block(...), Block(...)]
+        #*[ ... ] This “unpacks” the list into arguments i.e. nn.Sequential(Block1, Block2, Block3, ...)
+        # nn.Sequential() creates a pipeline where output flows through each block in order:
+        # x → Block1 → Block2 → Block3 → ... → BlockN
+        # this is happening on a tranformer level i.e. same batch goes through transform n times. 
         self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd) # final layer norm
+        # translator from “embedding space” → “word scores”
+        # score for each possible word in the vocabulary
         self.lm_head = nn.Linear(n_embd, vocab_size)
     
     #idx = xb and target = yb called 
     def forward(self, idx, targets=None):
-        # B = block size and T = batch Size initialised in getbatch.
+        # B = batch Size and T = block size initialised in getbatch.
         B,T = idx.shape
  
         #idx and targets are bot (B,T) tensor of integers
@@ -308,19 +316,31 @@ class BigramLanguageModel(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B,T,C)
 
         # this is the positional encoding, giving the model a sense of where the token is in the sequence. Shape (T, C).
-            # you are essentially assigning a token from y into a n_embd (48 for example) dimensional vector. This
+        # you are essentially assigning a token from y into a n_embd (48 for example) dimensional vector. This
         pos_emb = self.position_embedding_table(torch.arange(T, device = device)) # (T,C)
 
         # combining the base meaning with positional context i.e. [0.5] + [0.01] = 0.51
         x = tok_emb + pos_emb
 
+        # pass embedding dimensions to block which ochestrates the self-attention layer 
         x = self.blocks(x) # (B,T,C)
+        # normalization on the embedding
         x = self.ln_f(x)# (B,T,C)
-        logits = self.lm_head(x) # (B,T,vocab_size)
 
+
+
+        # scores token against all vocab
+        # Token	| cat	| dog	| mat	| sat	| on
+        # --------------------------------------------        
+        # "The"	| 0.1	| 0.05	| 0.2	| 0.0	| 0.15
+        # --------------------------------------------
+        # "cat"	| 0.5	| 0.1	| 0.2	| 0.05	| 0.0
+
+        logits = self.lm_head(x) # (B,T,vocab_size)
         if targets is None:
             loss = None
         else:
+            # destructure shape of logits to B, T, C
             B, T, C = logits.shape
             logits = logits.view(B*T, C)
             targets = targets.view(B*T)
