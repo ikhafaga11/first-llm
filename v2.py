@@ -378,11 +378,24 @@ class BigramLanguageModel(nn.Module):
 
 
 
+# create the BLM instance
 model = BigramLanguageModel()
+# pass the BLM instance to the CPU or GPU depending on compatibility
 m = model.to(device)
 
+# m.parameters() returns every weight matrix inside your model:
+# embedding table
+# Q, K, V matrices
+# projection matrices
+# feed-forward layers
+# layer norms
+# lm_head
+# AdamW will update all of these during training.
+# “Optimizer, here are all the dials inside my transformer. You will adjust these every training step.”
+# learning rate is the volatitility of the leaning rate per weight
 optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
 
+# max iters is the numebr if iterations during training
 for iter in range(max_iters):
 
     # every once in a while evaluate the loss on the train and val sets
@@ -395,10 +408,28 @@ for iter in range(max_iters):
 
     # evaluate the loss
     logits, loss = m(xb, yb)
+    # Clears all the stored gradients from the previous step.
+    # Avoid accumulation from previous steps
     optimizer.zero_grad(set_to_none=True)
+    # loss.backward() computes gradients for every weight: each gradient tells you the direction to change that weight to reduce the loss.
+    # Positive gradient → move weight slightly in negative direction
+    # Negative gradient → move weight slightly in positive direction
     loss.backward()
+    # AdamW reads gradients
+    # Adjusts every weight (“turns the dials”) to reduce loss
     optimizer.step()
-    
+
+# Shape (1, 1) → batch size 1, sequence length 1
+# torch.zeros → token ID 0 (often the “start of sequence” or first token in your vocab)
+# device=device → moves the tensor to CPU/GPU depending on your model
 context = torch.zeros((1, 1), dtype=torch.long, device = device)
+
+# m.generate() is a text generation method inside your model
+# max_new_tokens=500
+# generate() returns a tensor of shape (batch_size, sequence_length)
+# [0] → pick the first (and only) batch
+# .tolist() → convert tensor to a Python list of token IDs
+# decode() turns token IDs back into human-readable text using your vocabulary / tokenizer
+# For example: [0, 12, 43, 7] → "The cat sat"
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 
