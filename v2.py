@@ -342,9 +342,20 @@ class BigramLanguageModel(nn.Module):
         else:
             # destructure shape of logits to B, T, C
             B, T, C = logits.shape
+
+            # cross_entropy which is used for calculating loss requires:
+            # a 2D matrix shape of # of tokens (N) and vocab size (C)
+            # a 1D target vector of shape (N) 
+            # so we flatten the batches by multiplying batch_size (B) with block_size (T)
+            # .view is essentially flattening the batches together into one big list of tokens.
+            # and you use these matrices to pass it to the loss function
             logits = logits.view(B*T, C)
             targets = targets.view(B*T)
+
+            # pass in the arguments to calculate loss
             loss = F.cross_entropy(logits, targets)
+
+        # return logits and loss calculations. Logits is the token scores. 
 
         return logits, loss
     
